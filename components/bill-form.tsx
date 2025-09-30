@@ -15,17 +15,32 @@ import { formatBilingualDate, getDefaultNepaliDate } from '@/lib/nepali-date'
 interface MockTenant {
   id: string
   name: string
-  room: { id: string; room_number: string }
+  room: { 
+    id: string; 
+    room_number: string;
+    monthly_rent?: number;
+    room_type?: string;
+  }
 }
 
 interface MockReading {
   id: string
-  reading_date_nepali: string // Changed to use only Nepali date
-  units_consumed: number
+  reading_date_nepali: string
   tenant_id: string
   tenant_name?: string
   room_number?: string
   rate_per_unit?: number
+  meter_type?: string
+  // Single room fields
+  previous_reading?: number
+  current_reading?: number
+  // Double room fields  
+  room_meter_previous?: number
+  room_meter_current?: number
+  kitchen_meter_previous?: number
+  kitchen_meter_current?: number
+  // Calculated field
+  units_consumed?: number
 }
 
 const mockTenants: MockTenant[] = [
@@ -45,10 +60,11 @@ export default function BillForm() {
   const [readings, setReadings] = useState<MockReading[]>([])
   const [selectedTenant, setSelectedTenant] = useState('')
   const [selectedReading, setSelectedReading] = useState('')
+  const [selectedRoomType, setSelectedRoomType] = useState<'single' | 'double'>('single')
   const [billData, setBillData] = useState({
     bill_date_nepali: getDefaultNepaliDate(), // Only Nepali date
     // Core charges
-    monthly_rent: '8000',
+    monthly_rent: '',
     // Previous month adjustments
     previous_balance: '0', // Remaining rent from last month (+) or advance payment (-)
     notes: ''
@@ -68,7 +84,7 @@ export default function BillForm() {
         .select(`
           id,
           name,
-          room:rooms!inner(id, room_number)
+          room:rooms!inner(id, room_number, monthly_rent, room_type)
         `)
         .eq('is_active', true)
 
@@ -87,11 +103,31 @@ export default function BillForm() {
       if (data) {
         // Transform the data to match our interface
         const transformedData: MockTenant[] = data.map((item: unknown) => {
-          const typedItem = item as { id: string; name: string; room: { id: string; room_number: string } | { id: string; room_number: string }[] }
+          const typedItem = item as { 
+            id: string; 
+            name: string; 
+            room: { 
+              id: string; 
+              room_number: string; 
+              monthly_rent: number;
+              room_type?: string;
+            } | { 
+              id: string; 
+              room_number: string; 
+              monthly_rent: number;
+              room_type?: string;
+            }[] 
+          }
+          const roomData = Array.isArray(typedItem.room) ? typedItem.room[0] : typedItem.room
           return {
             id: typedItem.id,
             name: typedItem.name,
-            room: Array.isArray(typedItem.room) ? typedItem.room[0] : typedItem.room
+            room: {
+              id: roomData.id,
+              room_number: roomData.room_number,
+              monthly_rent: roomData.monthly_rent,
+              room_type: roomData.room_type || 'single'
+            }
           }
         })
         setTenants(transformedData)
@@ -112,7 +148,21 @@ export default function BillForm() {
 
       const { data, error } = await supabase
         .from('readings')
-        .select('id, reading_date_nepali, units_consumed, rate_per_unit, tenant_id, tenant_name, room_number')
+        .select(`
+          id, 
+          reading_date_nepali, 
+          rate_per_unit, 
+          tenant_id, 
+          tenant_name, 
+          room_number,
+          meter_type,
+          previous_reading,
+          current_reading,
+          room_meter_previous,
+          room_meter_current,
+          kitchen_meter_previous,
+          kitchen_meter_current
+        `)
         .eq('tenant_id', tenantId)
         .order('reading_date_nepali', { ascending: false })
 
@@ -129,7 +179,27 @@ export default function BillForm() {
         return
       }
 
-      setReadings(data || [])
+      // Calculate units for each reading based on meter type
+      const readingsWithUnits = (data || []).map(reading => {
+        let units_consumed = 0
+        
+        if (reading.meter_type === 'double') {
+          // For double rooms: room meter + kitchen meter
+          const roomUnits = (reading.room_meter_current || 0) - (reading.room_meter_previous || 0)
+          const kitchenUnits = (reading.kitchen_meter_current || 0) - (reading.kitchen_meter_previous || 0)
+          units_consumed = roomUnits + kitchenUnits
+        } else {
+          // For single rooms: current - previous
+          units_consumed = (reading.current_reading || 0) - (reading.previous_reading || 0)
+        }
+        
+        return {
+          ...reading,
+          units_consumed: Math.max(0, units_consumed) // Ensure no negative values
+        }
+      })
+
+      setReadings(readingsWithUnits)
     } catch (error) {
       console.error('Error:', error)
       const tenantReadings = mockReadings.filter(r => r.tenant_id === tenantId)
@@ -144,8 +214,30 @@ export default function BillForm() {
   useEffect(() => {
     if (selectedTenant) {
       loadReadings(selectedTenant)
+      
+      // Set room type and monthly rent from selected tenant's room
+      const tenant = tenants.find(t => t.id === selectedTenant)
+      if (tenant) {
+        // Set room type
+        setSelectedRoomType(tenant.room.room_type === 'double' ? 'double' : 'single')
+        
+        // Set monthly rent
+        if (tenant.room.monthly_rent) {
+          setBillData(prev => ({
+            ...prev,
+            monthly_rent: tenant.room.monthly_rent!.toString()
+          }))
+        }
+      }
+    } else {
+      // Reset when no tenant selected
+      setSelectedRoomType('single')
+      setBillData(prev => ({
+        ...prev,
+        monthly_rent: ''
+      }))
     }
-  }, [selectedTenant, loadReadings])
+  }, [selectedTenant, loadReadings, tenants])
 
   const calculateBill = () => {
     if (!selectedReading) return 0
@@ -153,10 +245,10 @@ export default function BillForm() {
     const reading = readings.find(r => r.id === selectedReading)
     if (!reading) return 0
 
-    const monthlyRent = parseFloat(billData.monthly_rent)
+    const monthlyRent = parseFloat(billData.monthly_rent) || 0
     // Use the rate from the reading (set when reading was added)
-    const electricityAmount = reading.units_consumed * (reading.rate_per_unit || 15)
-    const previousBalance = parseFloat(billData.previous_balance)
+    const electricityAmount = (reading.units_consumed || 0) * (reading.rate_per_unit || 15)
+    const previousBalance = parseFloat(billData.previous_balance) || 0
 
     return monthlyRent + electricityAmount + previousBalance
   }
@@ -195,7 +287,7 @@ export default function BillForm() {
         room_number: tenant.room.room_number,
         bill_date_nepali: billData.bill_date_nepali,
         rent_amount: parseFloat(billData.monthly_rent),
-        electricity_amount: reading.units_consumed * (reading.rate_per_unit || 15),
+        electricity_amount: (reading.units_consumed || 0) * (reading.rate_per_unit || 15),
         previous_balance: parseFloat(billData.previous_balance),
         notes: billData.notes || null,
         is_paid: false
@@ -212,9 +304,10 @@ export default function BillForm() {
         setSelectedTenant('')
         setSelectedReading('')
         setReadings([])
+        setSelectedRoomType('single')
         setBillData({
           bill_date_nepali: getDefaultNepaliDate(),
-          monthly_rent: '8000',
+          monthly_rent: '',
           previous_balance: '0',
           notes: ''
         })
@@ -247,9 +340,10 @@ export default function BillForm() {
       setSelectedTenant('')
       setSelectedReading('')
       setReadings([])
+      setSelectedRoomType('single')
       setBillData({
         bill_date_nepali: getDefaultNepaliDate(),
-        monthly_rent: '8000',
+        monthly_rent: '',
         previous_balance: '0',
         notes: ''
       })
@@ -365,8 +459,12 @@ export default function BillForm() {
               <h3 className="font-semibold mb-2">बिल सारांश</h3>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
+                  <span>कोठाको प्रकार:</span>
+                  <span>{selectedRoomType === 'double' ? '🏠 डबल कोठा (दुई मिटर)' : '🏠 सिंगल कोठा (एक मिटर)'}</span>
+                </div>
+                <div className="flex justify-between">
                   <span>मासिक भाडा:</span>
-                  <span>रू {billData.monthly_rent}</span>
+                  <span>रू {billData.monthly_rent || '0'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>बिजुली ({readings.find(r => r.id === selectedReading)?.units_consumed || 0} युनिट @ रू{readings.find(r => r.id === selectedReading)?.rate_per_unit || 15}):</span>
@@ -374,7 +472,7 @@ export default function BillForm() {
                 </div>
                 <div className="flex justify-between">
                   <span>पहिलेको बाँकी/अग्रिम:</span>
-                  <span>{parseFloat(billData.previous_balance) >= 0 ? '+' : ''}रू {billData.previous_balance}</span>
+                  <span>{parseFloat(billData.previous_balance || '0') >= 0 ? '+' : ''}रू {billData.previous_balance || '0'}</span>
                 </div>
                 <hr className="my-2" />
                 <div className="flex justify-between font-semibold">

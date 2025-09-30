@@ -63,6 +63,7 @@ export function ReadingForm() {
 
       if (error) {
         console.error('Error loading tenants:', error)
+        console.error('Tenant loading error details:', JSON.stringify(error, null, 2))
         toast({
           title: "त्रुटि",
           description: "भाडादारहरू लोड गर्न सकिएन",
@@ -74,15 +75,21 @@ export function ReadingForm() {
       }
 
       if (data) {
+        console.log('🏠 Raw tenant data from database:', data)
         // Transform the data to match our interface
         const transformedData = data.map((item: unknown) => {
-          const typedItem = item as { id: string; name: string; rooms: { room_number: string }[] }
+          const typedItem = item as { id: string; name: string; rooms: { room_number: string; room_type?: string }[] }
+          const roomData = Array.isArray(typedItem.rooms) ? typedItem.rooms[0] : typedItem.rooms
           return {
             id: typedItem.id,
             name: typedItem.name,
-            rooms: Array.isArray(typedItem.rooms) ? typedItem.rooms[0] : typedItem.rooms
+            rooms: {
+              room_number: roomData.room_number,
+              room_type: roomData.room_type || 'single' // Default to single if not specified
+            }
           }
         })
+        console.log('🏠 Transformed tenant data:', transformedData)
         setTenants(transformedData as Tenant[])
       }
     } catch (error) {
@@ -188,7 +195,12 @@ export function ReadingForm() {
       if (selectedTenant) {
         const roomType = selectedTenant.rooms.room_type || 'single'
         console.log('🏠 Selected tenant room type:', roomType, 'for tenant:', selectedTenant.name)
+        console.log('🏠 Full tenant data:', selectedTenant)
+        console.log('🏠 Current selectedRoomType state:', selectedRoomType)
         setSelectedRoomType(roomType)
+        console.log('🏠 Setting selectedRoomType to:', roomType)
+      } else {
+        console.log('❌ No tenant found for ID:', formData.tenant_id)
       }
       loadPreviousReading(formData.tenant_id)
     }
@@ -336,6 +348,12 @@ export function ReadingForm() {
 
       console.log('📊 Final insert data:', insertData)
       console.log('🎯 About to insert into database...')
+      console.log('🏠 Selected room type:', selectedRoomType)
+      console.log('🔍 Room type detection:', {
+        selectedTenant: selectedTenant,
+        roomType: selectedTenant?.rooms?.room_type,
+        detectedType: selectedRoomType
+      })
 
       const { error } = await supabase.from('readings').insert(insertData)
 
@@ -354,12 +372,12 @@ export function ReadingForm() {
         ) && selectedRoomType === 'double') {
           toast({
             title: "त्रुटि",
-            description: "डबल कोठा समर्थन सक्रिय गर्न डेटाबेस अपडेट आवश्यक छ। कृपया व्यवस्थापकलाई सम्पर्क गर्नुहोस्।",
+            description: `डेटाबेस कलम फेला परेन: ${error.message}। कृपया COMPREHENSIVE-FIX.sql स्क्रिप्ट चलाउनुहोस्।`,
             variant: "destructive",
           })
         } else {
           toast({
-            title: "त्रुटि",
+            title: "त्रुटि", 
             description: `रिडिङ सेभ गर्न सकिएन: ${error.message || 'अज्ञात त्रुटि'}`,
             variant: "destructive",
           })
