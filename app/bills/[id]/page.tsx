@@ -352,7 +352,7 @@ export default function BillDetailPage() {
               {/* Tenant Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                  भाडावालको जानकारी
+                  भाडावालाको जानकारी
                 </h3>
                 <div className="space-y-2">
                   <p><span className="font-medium">नाम:</span> {bill.tenant_name}</p>
