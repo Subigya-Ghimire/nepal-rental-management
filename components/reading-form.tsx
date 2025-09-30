@@ -343,9 +343,15 @@ export function ReadingForm() {
         console.error('Error saving reading:', error)
         console.error('Insert data was:', insertData)
         console.error('Selected room type:', selectedRoomType)
+        console.error('Full error details:', JSON.stringify(error, null, 2))
         
         // Check if the error is related to missing double room columns
-        if (error.message.includes('column') && selectedRoomType === 'double') {
+        if (error.message && (
+          error.message.includes('column') || 
+          error.message.includes('meter_type') ||
+          error.message.includes('room_meter') ||
+          error.message.includes('kitchen_meter')
+        ) && selectedRoomType === 'double') {
           toast({
             title: "त्रुटि",
             description: "डबल कोठा समर्थन सक्रिय गर्न डेटाबेस अपडेट आवश्यक छ। कृपया व्यवस्थापकलाई सम्पर्क गर्नुहोस्।",
@@ -354,7 +360,7 @@ export function ReadingForm() {
         } else {
           toast({
             title: "त्रुटि",
-            description: `रिडिङ सेभ गर्न सकिएन: ${error.message}`,
+            description: `रिडिङ सेभ गर्न सकिएन: ${error.message || 'अज्ञात त्रुटि'}`,
             variant: "destructive",
           })
         }
