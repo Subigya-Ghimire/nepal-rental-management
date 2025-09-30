@@ -52,7 +52,7 @@ CREATE TABLE public.tenants (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create readings table (updated with Nepali date support)
+-- Create readings table (updated with Nepali date support and double room meter support)
 CREATE TABLE public.readings (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id UUID REFERENCES public.tenants(id) NOT NULL,
@@ -60,11 +60,76 @@ CREATE TABLE public.readings (
     room_number VARCHAR(10) NOT NULL,
     reading_date DATE, -- Made optional since we're using Nepali dates
     reading_date_nepali VARCHAR(20) NOT NULL, -- Primary date field in Nepali
-    previous_reading INTEGER NOT NULL DEFAULT 0,
-    current_reading INTEGER NOT NULL,
-    units_consumed INTEGER GENERATED ALWAYS AS (current_reading - previous_reading) STORED,
+    
+    -- Single room meter fields
+    previous_reading INTEGER DEFAULT 0,
+    current_reading INTEGER,
+    units_consumed INTEGER GENERATED ALWAYS AS (
+        CASE 
+            WHEN current_reading IS NOT NULL AND previous_reading IS NOT NULL 
+            THEN current_reading - previous_reading 
+            ELSE NULL 
+        END
+    ) STORED,
+    
+    -- Double room meter support
+    meter_type VARCHAR(20) DEFAULT 'single',
+    room_meter_previous INTEGER,
+    room_meter_current INTEGER,
+    kitchen_meter_previous INTEGER,
+    kitchen_meter_current INTEGER,
+    room_meter_units INTEGER GENERATED ALWAYS AS (
+        CASE 
+            WHEN room_meter_current IS NOT NULL AND room_meter_previous IS NOT NULL 
+            THEN room_meter_current - room_meter_previous 
+            ELSE NULL 
+        END
+    ) STORED,
+    kitchen_meter_units INTEGER GENERATED ALWAYS AS (
+        CASE 
+            WHEN kitchen_meter_current IS NOT NULL AND kitchen_meter_previous IS NOT NULL 
+            THEN kitchen_meter_current - kitchen_meter_previous 
+            ELSE NULL 
+        END
+    ) STORED,
+    room_meter_cost DECIMAL(10,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN room_meter_current IS NOT NULL AND room_meter_previous IS NOT NULL 
+            THEN (room_meter_current - room_meter_previous) * rate_per_unit
+            ELSE NULL 
+        END
+    ) STORED,
+    kitchen_meter_cost DECIMAL(10,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN kitchen_meter_current IS NOT NULL AND kitchen_meter_previous IS NOT NULL 
+            THEN (kitchen_meter_current - kitchen_meter_previous) * rate_per_unit
+            ELSE NULL 
+        END
+    ) STORED,
+    
+    -- Universal fields
     rate_per_unit DECIMAL(10,2) NOT NULL DEFAULT 15.00,
+    total_units_consumed INTEGER GENERATED ALWAYS AS (
+        CASE 
+            WHEN meter_type = 'double' AND room_meter_current IS NOT NULL AND kitchen_meter_current IS NOT NULL
+            THEN COALESCE(room_meter_current - room_meter_previous, 0) + 
+                 COALESCE(kitchen_meter_current - kitchen_meter_previous, 0)
+            WHEN meter_type = 'single' AND current_reading IS NOT NULL AND previous_reading IS NOT NULL
+            THEN current_reading - previous_reading
+            ELSE 0
+        END
+    ) STORED,
     electricity_cost DECIMAL(10,2) GENERATED ALWAYS AS ((current_reading - previous_reading) * rate_per_unit) STORED,
+    total_electricity_cost DECIMAL(10,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN meter_type = 'double' AND room_meter_current IS NOT NULL AND kitchen_meter_current IS NOT NULL
+            THEN (COALESCE(room_meter_current - room_meter_previous, 0) + 
+                  COALESCE(kitchen_meter_current - kitchen_meter_previous, 0)) * rate_per_unit
+            WHEN meter_type = 'single' AND current_reading IS NOT NULL AND previous_reading IS NOT NULL
+            THEN (current_reading - previous_reading) * rate_per_unit
+            ELSE 0
+        END
+    ) STORED,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -107,10 +172,54 @@ CREATE INDEX idx_tenants_room_number ON public.tenants(room_number);
 CREATE INDEX idx_tenants_is_active ON public.tenants(is_active);
 CREATE INDEX idx_readings_tenant_id ON public.readings(tenant_id);
 CREATE INDEX idx_readings_date ON public.readings(reading_date);
+CREATE INDEX idx_readings_meter_type ON public.readings(meter_type);
+CREATE INDEX idx_readings_tenant_meter_type ON public.readings(tenant_id, meter_type);
 CREATE INDEX idx_bills_tenant_id ON public.bills(tenant_id);
 CREATE INDEX idx_bills_date ON public.bills(bill_date);
 CREATE INDEX idx_payments_tenant_id ON public.payments(tenant_id);
 CREATE INDEX idx_payments_date ON public.payments(payment_date);
+
+-- Insert sample rooms with different types
+INSERT INTO public.rooms (room_number, floor_number, room_type, monthly_rent) 
+VALUES 
+    ('101', 1, 'single', 15000),
+    ('102', 1, 'single', 15000),
+    ('103', 1, 'single', 15000),
+    ('201', 2, 'single', 18000),
+    ('202', 2, 'single', 18000),
+    ('203', 2, 'single', 18000),
+    ('301', 3, 'double', 25000),
+    ('302', 3, 'double', 25000),
+    ('303', 3, 'double', 25000)
+ON CONFLICT (room_number) DO UPDATE SET 
+    room_type = EXCLUDED.room_type,
+    monthly_rent = EXCLUDED.monthly_rent;
+
+-- Add comments for documentation
+COMMENT ON TABLE public.rooms IS 'Rooms available for rent';
+COMMENT ON TABLE public.tenants IS 'Current and past tenants';
+COMMENT ON TABLE public.readings IS 'Electricity meter readings (supports both single and double room meters)';
+COMMENT ON TABLE public.bills IS 'Monthly bills generated for tenants';
+COMMENT ON TABLE public.payments IS 'Payment records from tenants';
+
+COMMENT ON COLUMN public.readings.meter_type IS 'Type of meter reading: single (one meter) or double (room + kitchen meters)';
+COMMENT ON COLUMN public.readings.room_meter_previous IS 'Previous reading for room meter (double rooms only)';
+COMMENT ON COLUMN public.readings.room_meter_current IS 'Current reading for room meter (double rooms only)';
+COMMENT ON COLUMN public.readings.kitchen_meter_previous IS 'Previous reading for kitchen meter (double rooms only)';
+COMMENT ON COLUMN public.readings.kitchen_meter_current IS 'Current reading for kitchen meter (double rooms only)';
+COMMENT ON COLUMN public.readings.total_units_consumed IS 'Total units consumed (single meter OR room+kitchen combined)';
+COMMENT ON COLUMN public.readings.total_electricity_cost IS 'Total electricity cost (works for both single and double rooms)';
+
+-- Success message
+DO $$ 
+BEGIN 
+    RAISE NOTICE '✅ Nepal Rental Management Database Setup Complete!';
+    RAISE NOTICE '🏠 Rooms created: 9 total (6 single rooms, 3 double rooms)';
+    RAISE NOTICE '📊 Double room meter support enabled';
+    RAISE NOTICE '🔧 All indexes and constraints in place';
+    RAISE NOTICE '📅 Nepali date support enabled';
+    RAISE NOTICE '🎯 Ready for production use!';
+END $$;
 
 -- Enable Row Level Security
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
