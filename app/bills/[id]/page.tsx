@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Trash2 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
 interface Bill {
   id: string
@@ -25,10 +26,12 @@ interface Bill {
 
 export default function BillDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const billId = params.id as string
   const [bill, setBill] = useState<Bill | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     const fetchBill = async () => {
@@ -71,13 +74,63 @@ export default function BillDetailPage() {
 
       if (error) {
         console.error('Error updating bill:', error)
-        alert('भुक्तानी अपडेट गर्न सकिएन')
+        toast({
+          title: "त्रुटि",
+          description: "भुक्तानी अपडेट गर्न सकिएन",
+          variant: "destructive",
+        })
       } else {
         setBill({ ...bill, is_paid: true })
+        toast({
+          title: "सफल",
+          description: "बिल भुक्तानी भयो भनेर चिन्ह लगाइयो",
+        })
       }
     } catch (err) {
       console.error('Error:', err)
-      alert('भुक्तानी अपडेट गर्न सकिएन')
+      toast({
+        title: "त्रुटि",
+        description: "भुक्तानी अपडेट गर्न सकिएन",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const deleteBill = async () => {
+    if (!bill) return
+
+    if (!confirm(`के तपाईं यो बिल मेटाउन चाहनुहुन्छ?\n${bill.tenant_name} - कोठा ${bill.room_number}`)) {
+      return
+    }
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { error } = await supabase
+        .from('bills')
+        .delete()
+        .eq('id', bill.id)
+
+      if (error) {
+        console.error('Error deleting bill:', error)
+        toast({
+          title: "त्रुटि",
+          description: "बिल मेटाउन सकिएन",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "सफल",
+          description: "बिल सफलतापूर्वक मेटाइयो",
+        })
+        router.push('/bills')
+      }
+    } catch (err) {
+      console.error('Error:', err)
+      toast({
+        title: "त्रुटि",
+        description: "बिल मेटाउन सकिएन",
+        variant: "destructive",
+      })
     }
   }
 
@@ -190,7 +243,7 @@ export default function BillDetailPage() {
             )}
 
             {/* Actions */}
-            <div className="mt-6 flex gap-3">
+            <div className="mt-6 flex gap-3 flex-wrap">
               {!bill.is_paid && (
                 <Button onClick={markAsPaid} className="bg-green-600 hover:bg-green-700">
                   भुक्तानी भयो भनेर चिन्ह लगाउनुहोस्
@@ -198,6 +251,14 @@ export default function BillDetailPage() {
               )}
               <Button variant="outline" onClick={() => window.print()}>
                 छाप्नुहोस्
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={deleteBill}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                बिल मेटाउनुहोस्
               </Button>
             </div>
 
