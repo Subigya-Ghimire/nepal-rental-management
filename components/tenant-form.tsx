@@ -112,11 +112,26 @@ export function TenantForm() {
         return
       }
 
+      // Get room details for the selected room
+      const selectedRoom = rooms.find(r => r.id === formData.room_id)
+      if (!selectedRoom) {
+        toast({
+          title: "त्रुटि",
+          description: "कोठा फेला परेन",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
       const { error } = await supabase.from("tenants").insert({
         name: formData.name,
         phone: formData.phone || null, // Handle optional phone
         email: formData.email || null,
         room_id: formData.room_id,
+        room_number: selectedRoom.room_number, // Required field
+        monthly_rent: selectedRoom.monthly_rent, // Required field
+        security_deposit: selectedRoom.monthly_rent * 2, // Typical security deposit (2 months rent)
         is_active: true,
       })
 
