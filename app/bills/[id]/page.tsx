@@ -26,11 +26,21 @@ interface Bill {
 
 interface Reading {
   id: string
-  previous_reading: number
-  current_reading: number
-  units_consumed: number
+  previous_reading?: number
+  current_reading?: number
+  room_meter_previous?: number
+  room_meter_current?: number
+  kitchen_meter_previous?: number
+  kitchen_meter_current?: number
+  units_consumed?: number
+  room_meter_units?: number
+  kitchen_meter_units?: number
   rate_per_unit: number
-  electricity_cost: number
+  electricity_cost?: number
+  room_meter_cost?: number
+  kitchen_meter_cost?: number
+  total_double_room_cost?: number
+  meter_type?: string
 }
 
 const NEPALI_MONTHS = [
@@ -99,6 +109,51 @@ function ElectricityBreakdown({ billId, electricityAmount }: { billId: string, e
     )
   }
 
+  // Handle double room display
+  if (reading.meter_type === 'double') {
+    return (
+      <div className="text-sm space-y-2">
+        <div className="font-medium text-gray-700">डबल कोठा मिटर ब्रेकडाउन:</div>
+        
+        <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <div className="font-medium text-blue-600">कोठा मिटर</div>
+              <div>पुरानो रिडिङ: {reading.room_meter_previous || 0}</div>
+              <div>नयाँ रिडिङ: {reading.room_meter_current || 0}</div>
+              <div>खपत: {reading.room_meter_units || 0} युनिट</div>
+              <div className="font-medium">रकम: रु. {reading.room_meter_cost || 0}</div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="font-medium text-green-600">भान्सा मिटर</div>
+              <div>पुरानो रिडिङ: {reading.kitchen_meter_previous || 0}</div>
+              <div>नयाँ रिडिङ: {reading.kitchen_meter_current || 0}</div>
+              <div>खपत: {reading.kitchen_meter_units || 0} युनिट</div>
+              <div className="font-medium">रकम: रु. {reading.kitchen_meter_cost || 0}</div>
+            </div>
+          </div>
+          
+          <div className="border-t pt-2 mt-2">
+            <div className="flex justify-between items-center font-medium">
+              <span>कुल खपत:</span>
+              <span>{(reading.room_meter_units || 0) + (reading.kitchen_meter_units || 0)} युनिट</span>
+            </div>
+            <div className="flex justify-between items-center font-bold text-blue-600">
+              <span>कुल बिजुलीको बिल:</span>
+              <span>रु. {reading.total_double_room_cost || electricityAmount}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="text-xs text-gray-500">
+          दर: रु. {reading.rate_per_unit}/युनिट
+        </div>
+      </div>
+    )
+  }
+
+  // Handle single room display (existing logic)
   return (
     <div className="text-sm space-y-1">
       <div className="grid grid-cols-2 gap-2">

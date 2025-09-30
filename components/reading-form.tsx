@@ -18,14 +18,15 @@ interface Tenant {
   name: string
   rooms: {
     room_number: string
+    room_type: string
   }
 }
 
 // Mock data for demo mode
 const mockTenants = [
-  { id: '1', name: 'राम बहादुर', rooms: { room_number: '101' } },
-  { id: '2', name: 'सीता कुमारी', rooms: { room_number: '102' } },
-  { id: '3', name: 'हरि प्रसाद', rooms: { room_number: '201' } }
+  { id: '1', name: 'राम बहादुर', rooms: { room_number: '101', room_type: 'single' } },
+  { id: '2', name: 'सीता कुमारी', rooms: { room_number: '102', room_type: 'single' } },
+  { id: '3', name: 'हरि प्रसाद', rooms: { room_number: '201', room_type: 'double' } }
 ]
 
 export function ReadingForm() {
@@ -35,10 +36,18 @@ export function ReadingForm() {
   const [formData, setFormData] = useState({
     tenant_id: "",
     reading_date_nepali: getDefaultNepaliDate(), // Only Nepali date
+    // Single room fields
     previous_reading: 0,
     current_reading: 0,
+    // Double room fields
+    room_meter_previous: 0,
+    room_meter_current: 0,
+    kitchen_meter_previous: 0,
+    kitchen_meter_current: 0,
     rate_per_unit: 15, // Default unit rate set to 15 rupees as requested
   })
+  
+  const [selectedRoomType, setSelectedRoomType] = useState<string>('single')
 
   const loadTenants = useCallback(async () => {
     try {
@@ -49,7 +58,7 @@ export function ReadingForm() {
 
       const { data, error } = await supabase
         .from("tenants")
-        .select("id, name, rooms!inner(room_number)")
+        .select("id, name, rooms!inner(room_number, room_type)")
         .eq("is_active", true)
 
       if (error) {
@@ -94,7 +103,10 @@ export function ReadingForm() {
           tenant_id: string; 
           reading_date: string; 
           current_reading?: number;
+          room_meter_current?: number;
+          kitchen_meter_current?: number;
           rate_per_unit?: number;
+          meter_type?: string;
         }>)
           .filter((r) => r.tenant_id === tenantId)
           .sort((a, b) => new Date(b.reading_date).getTime() - new Date(a.reading_date).getTime())[0];
@@ -103,12 +115,16 @@ export function ReadingForm() {
           setFormData(prev => ({
             ...prev,
             previous_reading: lastReading.current_reading || 0,
+            room_meter_previous: lastReading.room_meter_current || 0,
+            kitchen_meter_previous: lastReading.kitchen_meter_current || 0,
             rate_per_unit: lastReading.rate_per_unit || 15
           }));
         } else {
           setFormData(prev => ({
             ...prev,
             previous_reading: 0,
+            room_meter_previous: 0,
+            kitchen_meter_previous: 0,
             rate_per_unit: 15
           }));
         }
@@ -117,9 +133,9 @@ export function ReadingForm() {
 
       const { data, error } = await supabase
         .from("readings")
-        .select("current_reading, rate_per_unit")
+        .select("current_reading, room_meter_current, kitchen_meter_current, rate_per_unit, meter_type")
         .eq("tenant_id", tenantId)
-        .order("reading_date", { ascending: false })
+        .order("reading_date_nepali", { ascending: false })
         .limit(1)
 
       if (error) {
@@ -128,21 +144,28 @@ export function ReadingForm() {
         setFormData(prev => ({
           ...prev,
           previous_reading: 0,
+          room_meter_previous: 0,
+          kitchen_meter_previous: 0,
           rate_per_unit: 15
         }));
         return
       }
 
       if (data && data.length > 0) {
+        const lastReading = data[0]
         setFormData(prev => ({
           ...prev,
-          previous_reading: data[0].current_reading || 0,
-          rate_per_unit: data[0].rate_per_unit || 15
+          previous_reading: lastReading.current_reading || 0,
+          room_meter_previous: lastReading.room_meter_current || 0,
+          kitchen_meter_previous: lastReading.kitchen_meter_current || 0,
+          rate_per_unit: lastReading.rate_per_unit || 15
         }))
       } else {
         setFormData(prev => ({
           ...prev,
           previous_reading: 0,
+          room_meter_previous: 0,
+          kitchen_meter_previous: 0,
           rate_per_unit: 15
         }));
       }
@@ -151,6 +174,8 @@ export function ReadingForm() {
       setFormData(prev => ({
         ...prev,
         previous_reading: 0,
+        room_meter_previous: 0,
+        kitchen_meter_previous: 0,
         rate_per_unit: 15
       }));
     }
@@ -158,9 +183,14 @@ export function ReadingForm() {
 
   useEffect(() => {
     if (formData.tenant_id) {
+      // Find selected tenant and update room type
+      const selectedTenant = tenants.find(t => t.id === formData.tenant_id)
+      if (selectedTenant) {
+        setSelectedRoomType(selectedTenant.rooms.room_type || 'single')
+      }
       loadPreviousReading(formData.tenant_id)
     }
-  }, [formData.tenant_id, loadPreviousReading])
+  }, [formData.tenant_id, loadPreviousReading, tenants])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -184,19 +214,38 @@ export function ReadingForm() {
         return
       }
 
-      if (!formData.current_reading || formData.current_reading <= 0) {
-        console.log('❌ Validation failed: Invalid current reading')
-        toast({
-          title: "त्रुटि",
-          description: "कृपया हालको रिडिङ भर्नुहोस्",
-          variant: "destructive",
-        })
-        setLoading(false)
-        return
+      // Validation based on room type
+      if (selectedRoomType === 'single') {
+        if (!formData.current_reading || formData.current_reading <= 0) {
+          console.log('❌ Validation failed: Invalid current reading')
+          toast({
+            title: "त्रुटि",
+            description: "कृपया हालको रिडिङ भर्नुहोस्",
+            variant: "destructive",
+          })
+          setLoading(false)
+          return
+        }
+      } else if (selectedRoomType === 'double') {
+        if (!formData.room_meter_current || formData.room_meter_current <= 0 ||
+            !formData.kitchen_meter_current || formData.kitchen_meter_current <= 0) {
+          console.log('❌ Validation failed: Invalid double room readings')
+          toast({
+            title: "त्रुटि",
+            description: "कृपया कोठा र भान्साको मिटर रिडिङ भर्नुहोस्",
+            variant: "destructive",
+          })
+          setLoading(false)
+          return
+        }
       }
 
-      const unitsConsumed = formData.current_reading - formData.previous_reading
-      console.log('✅ Validation passed. Units consumed:', unitsConsumed)
+      const unitsConsumed = selectedRoomType === 'single' 
+        ? formData.current_reading - formData.previous_reading
+        : (formData.room_meter_current - formData.room_meter_previous) + 
+          (formData.kitchen_meter_current - formData.kitchen_meter_previous)
+      
+      console.log('✅ Validation passed. Units consumed:', unitsConsumed, 'Room type:', selectedRoomType)
 
       if (isDemoMode()) {
         console.log('💾 Saving in demo mode...')
@@ -205,8 +254,15 @@ export function ReadingForm() {
           id: Date.now().toString(),
           tenant_id: formData.tenant_id,
           reading_date_nepali: formData.reading_date_nepali,
-          previous_reading: formData.previous_reading,
-          current_reading: formData.current_reading,
+          meter_type: selectedRoomType,
+          // Single room fields
+          previous_reading: selectedRoomType === 'single' ? formData.previous_reading : null,
+          current_reading: selectedRoomType === 'single' ? formData.current_reading : null,
+          // Double room fields
+          room_meter_previous: selectedRoomType === 'double' ? formData.room_meter_previous : null,
+          room_meter_current: selectedRoomType === 'double' ? formData.room_meter_current : null,
+          kitchen_meter_previous: selectedRoomType === 'double' ? formData.kitchen_meter_previous : null,
+          kitchen_meter_current: selectedRoomType === 'double' ? formData.kitchen_meter_current : null,
           units_consumed: unitsConsumed,
           rate_per_unit: formData.rate_per_unit,
           tenants: tenants.find(t => t.id === formData.tenant_id)
@@ -247,15 +303,27 @@ export function ReadingForm() {
         return
       }
 
-      const { error } = await supabase.from('readings').insert({
+      const insertData: any = {
         tenant_id: formData.tenant_id,
         tenant_name: selectedTenant.name,
         room_number: selectedTenant.rooms.room_number,
         reading_date_nepali: formData.reading_date_nepali,
-        previous_reading: formData.previous_reading,
-        current_reading: formData.current_reading,
+        meter_type: selectedRoomType,
         rate_per_unit: formData.rate_per_unit
-      })
+      }
+
+      // Add fields based on room type
+      if (selectedRoomType === 'single') {
+        insertData.previous_reading = formData.previous_reading
+        insertData.current_reading = formData.current_reading
+      } else if (selectedRoomType === 'double') {
+        insertData.room_meter_previous = formData.room_meter_previous
+        insertData.room_meter_current = formData.room_meter_current
+        insertData.kitchen_meter_previous = formData.kitchen_meter_previous
+        insertData.kitchen_meter_current = formData.kitchen_meter_current
+      }
+
+      const { error } = await supabase.from('readings').insert(insertData)
 
       if (error) {
         console.error('Error saving reading:', error)
@@ -292,7 +360,12 @@ export function ReadingForm() {
     }
   }
 
-  const unitsConsumed = formData.current_reading - formData.previous_reading
+  // Calculate units and amounts based on room type
+  const unitsConsumed = selectedRoomType === 'single' 
+    ? formData.current_reading - formData.previous_reading
+    : (formData.room_meter_current - formData.room_meter_previous) + 
+      (formData.kitchen_meter_current - formData.kitchen_meter_previous)
+  
   const totalAmount = unitsConsumed * formData.rate_per_unit
 
   return (
@@ -312,7 +385,7 @@ export function ReadingForm() {
               <SelectContent>
                 {tenants.map((tenant) => (
                   <SelectItem key={tenant.id} value={tenant.id}>
-                    {tenant.name} - कोठा {tenant.rooms.room_number}
+                    {tenant.name} - कोठा {tenant.rooms.room_number} ({tenant.rooms.room_type === 'double' ? 'डबल' : 'सिंगल'})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -333,38 +406,137 @@ export function ReadingForm() {
             </p>
           </div>
 
-          <div>
-            <Label htmlFor="previous_reading">पहिलेको रिडिङ</Label>
-            <Input
-              id="previous_reading"
-              type="number"
-              value={formData.previous_reading}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  previous_reading: Number.parseFloat(e.target.value) || 0,
-                })
-              }
-              readOnly
-            />
-          </div>
+          {/* Single Room Meter Fields */}
+          {selectedRoomType === 'single' && (
+            <>
+              <div>
+                <Label htmlFor="previous_reading">पहिलेको रिडिङ</Label>
+                <Input
+                  id="previous_reading"
+                  type="number"
+                  value={formData.previous_reading}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      previous_reading: Number.parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="पहिलेको रिडिङ (सम्पादन गर्न सकिन्छ)"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  यो फिल्ड सम्पादन गर्न सकिन्छ यदि आवश्यक भएमा
+                </p>
+              </div>
 
-          <div>
-            <Label htmlFor="current_reading">हालको रिडिङ *</Label>
-            <Input
-              id="current_reading"
-              type="number"
-              value={formData.current_reading}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  current_reading: Number.parseFloat(e.target.value) || 0,
-                })
-              }
-              required
-              min={formData.previous_reading}
-            />
-          </div>
+              <div>
+                <Label htmlFor="current_reading">हालको रिडिङ *</Label>
+                <Input
+                  id="current_reading"
+                  type="number"
+                  value={formData.current_reading}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      current_reading: Number.parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  required
+                  min={0}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Double Room Meter Fields */}
+          {selectedRoomType === 'double' && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="room_meter_previous">कोठा मिटर - पहिलेको रिडिङ</Label>
+                  <Input
+                    id="room_meter_previous"
+                    type="number"
+                    value={formData.room_meter_previous}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        room_meter_previous: Number.parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="कोठा मिटर पुरानो रिडिङ"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="kitchen_meter_previous">भान्सा मिटर - पहिलेको रिडिङ</Label>
+                  <Input
+                    id="kitchen_meter_previous"
+                    type="number"
+                    value={formData.kitchen_meter_previous}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        kitchen_meter_previous: Number.parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="भान्सा मिटर पुरानो रिडिङ"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="room_meter_current">कोठा मिटर - हालको रिडिङ *</Label>
+                  <Input
+                    id="room_meter_current"
+                    type="number"
+                    value={formData.room_meter_current}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        room_meter_current: Number.parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    required
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="kitchen_meter_current">भान्सा मिटर - हालको रिडिङ *</Label>
+                  <Input
+                    id="kitchen_meter_current"
+                    type="number"
+                    value={formData.kitchen_meter_current}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        kitchen_meter_current: Number.parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    required
+                    min={0}
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <h4 className="font-medium text-amber-800 mb-2">डबल कोठा मिटर ब्रेकडाउन:</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>कोठा मिटर खपत:</span>
+                    <span>{formData.room_meter_current - formData.room_meter_previous} युनिट</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>भान्सा मिटर खपत:</span>
+                    <span>{formData.kitchen_meter_current - formData.kitchen_meter_previous} युनिट</span>
+                  </div>
+                  <div className="flex justify-between font-medium text-amber-700">
+                    <span>कुल खपत:</span>
+                    <span>{unitsConsumed} युनिट</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           <div>
             <Label htmlFor="rate_per_unit">प्रति युनिट दर (रु.) *</Label>
@@ -394,6 +566,11 @@ export function ReadingForm() {
                 <span>कुल रकम:</span>
                 <span className="font-bold text-blue-600">रु. {totalAmount}</span>
               </div>
+              {selectedRoomType === 'double' && (
+                <div className="text-xs text-gray-600 mt-2">
+                  दुवै मिटरको कुल खपत: {formData.room_meter_current - formData.room_meter_previous} + {formData.kitchen_meter_current - formData.kitchen_meter_previous} = {unitsConsumed} युनिट
+                </div>
+              )}
             </div>
           </div>
 
