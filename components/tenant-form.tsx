@@ -72,6 +72,41 @@ export function TenantForm() {
     loadRooms()
   }, [loadRooms])
 
+  // Manual room occupancy sync function
+  const syncRoomOccupancy = async () => {
+    try {
+      // First, get all active tenants and their room IDs
+      const { data: activeTenants, error: tenantsError } = await supabase
+        .from('tenants')
+        .select('room_id')
+        .eq('is_active', true)
+
+      if (tenantsError) {
+        console.error('Error fetching active tenants:', tenantsError)
+        return
+      }
+
+      const occupiedRoomIds = activeTenants?.map(t => t.room_id).filter(Boolean) || []
+
+      // Reset all rooms to unoccupied
+      await supabase
+        .from('rooms')
+        .update({ is_occupied: false })
+
+      // Mark occupied rooms
+      if (occupiedRoomIds.length > 0) {
+        await supabase
+          .from('rooms')
+          .update({ is_occupied: true })
+          .in('id', occupiedRoomIds)
+      }
+
+      console.log('🔄 Room occupancy synced:', occupiedRoomIds.length, 'rooms occupied')
+    } catch (error) {
+      console.error('Error syncing room occupancy:', error)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -151,6 +186,9 @@ export function TenantForm() {
         .from("rooms")
         .update({ is_occupied: true })
         .eq("id", formData.room_id)
+
+      // Run manual sync to ensure consistency
+      await syncRoomOccupancy()
 
       toast({
         title: "सफल",

@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { Navigation } from '@/components/navigation'
-import { Plus, Phone, Home, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Phone, Home, Edit2, Trash2, RefreshCw } from 'lucide-react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { isDemoMode, getDemoData } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { syncRoomOccupancy, getRoomAvailability } from '@/lib/room-sync'
 
 // Mock data for demo mode
 interface MockTenant {
@@ -116,6 +117,45 @@ export default function TenantsPage() {
     }
   }
 
+  // Manual room occupancy sync function
+  const syncRoomOccupancyLocal = async () => {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      
+      // First, get all active tenants and their room IDs
+      const { data: activeTenants, error: tenantsError } = await supabase
+        .from('tenants')
+        .select('room_id')
+        .eq('is_active', true)
+
+      if (tenantsError) {
+        console.error('Error fetching active tenants:', tenantsError)
+        return { success: false, error: tenantsError }
+      }
+
+      const occupiedRoomIds = activeTenants?.map(t => t.room_id).filter(Boolean) || []
+
+      // Reset all rooms to unoccupied
+      await supabase
+        .from('rooms')
+        .update({ is_occupied: false })
+
+      // Mark occupied rooms
+      if (occupiedRoomIds.length > 0) {
+        await supabase
+          .from('rooms')
+          .update({ is_occupied: true })
+          .in('id', occupiedRoomIds)
+      }
+
+      console.log('🔄 Room occupancy synced:', occupiedRoomIds.length, 'rooms occupied')
+      return { success: true, occupiedRooms: occupiedRoomIds.length }
+    } catch (error) {
+      console.error('Error syncing room occupancy:', error)
+      return { success: false, error }
+    }
+  }
+
   const deleteTenant = async (tenantId: string, tenantName: string) => {
     if (!confirm(`के तपाईं ${tenantName} लाई मेटाउन चाहनुहुन्छ?\nयसले सबै सम्बन्धित रिडिङ र बिलहरू पनि मेट्नेछ।`)) {
       return
@@ -178,8 +218,13 @@ export default function TenantsPage() {
         if (roomError) {
           console.error('Error updating room status:', roomError)
           // Don't fail the whole operation for this
+        } else {
+          console.log('✅ Room freed up successfully')
         }
       }
+
+      // Also run a manual sync to ensure consistency
+      await syncRoomOccupancyLocal()
 
       toast({
         title: "सफल",
@@ -208,12 +253,49 @@ export default function TenantsPage() {
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">भाडामा बस्नेहरू</h1>
             <p className="text-gray-600 text-sm mt-1">सबै भाडामा बस्ने व्यक्तिहरूको सूची</p>
           </div>
-          <Button asChild>
-            <Link href="/new-tenant">
-              <Plus className="h-4 w-4 mr-2" />
-              नयाँ थप्नुहोस्
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                try {
+                  const result = await syncRoomOccupancyLocal()
+                  if (result?.success) {
+                    toast({
+                      title: "सफल",
+                      description: `कोठाको उपलब्धता अपडेट भयो (${result.occupiedRooms} कोठा कब्जामा)`,
+                    })
+                    // Refresh the room availability display
+                    const availability = await getRoomAvailability()
+                    if (availability.success) {
+                      console.log('🏠 Room availability updated:', availability)
+                    }
+                  } else {
+                    toast({
+                      title: "त्रुटि",
+                      description: "कोठाको उपलब्धता अपडेट गर्न सकिएन",
+                      variant: "destructive",
+                    })
+                  }
+                } catch (error) {
+                  console.error('Sync error:', error)
+                  toast({
+                    title: "त्रुटि",
+                    description: "कोठाको उपलब्धता अपडेट गर्न सकिएन",
+                    variant: "destructive",
+                  })
+                }
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              कोठा सिंक
+            </Button>
+            <Button asChild>
+              <Link href="/new-tenant">
+                <Plus className="h-4 w-4 mr-2" />
+                नयाँ थप्नुहोस्
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {loading ? (

@@ -119,6 +119,43 @@ export default function EditTenantPage() {
     }
   }
 
+  // Manual room occupancy sync function
+  const syncRoomOccupancy = async () => {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      
+      // First, get all active tenants and their room IDs
+      const { data: activeTenants, error: tenantsError } = await supabase
+        .from('tenants')
+        .select('room_id')
+        .eq('is_active', true)
+
+      if (tenantsError) {
+        console.error('Error fetching active tenants:', tenantsError)
+        return
+      }
+
+      const occupiedRoomIds = activeTenants?.map(t => t.room_id).filter(Boolean) || []
+
+      // Reset all rooms to unoccupied
+      await supabase
+        .from('rooms')
+        .update({ is_occupied: false })
+
+      // Mark occupied rooms
+      if (occupiedRoomIds.length > 0) {
+        await supabase
+          .from('rooms')
+          .update({ is_occupied: true })
+          .in('id', occupiedRoomIds)
+      }
+
+      console.log('🔄 Room occupancy synced:', occupiedRoomIds.length, 'rooms occupied')
+    } catch (error) {
+      console.error('Error syncing room occupancy:', error)
+    }
+  }
+
   const handleRoomChange = (roomId: string) => {
     const selectedRoom = rooms.find(room => room.id === roomId)
     if (selectedRoom) {
@@ -220,6 +257,9 @@ export default function EditTenantPage() {
           .update({ is_occupied: true })
           .eq('id', newRoomId)
       }
+
+      // Run manual sync to ensure consistency
+      await syncRoomOccupancy()
 
       toast({
         title: "सफल",
