@@ -280,9 +280,9 @@ export default function BillForm() {
                 <SelectTrigger>
                   <SelectValue placeholder="भाडादार छान्नुहोस्" />
                 </SelectTrigger>
-                <SelectContent className="z-50 max-h-60 overflow-y-auto">
+                <SelectContent className="z-[100] max-h-60 overflow-y-auto bg-white border-gray-200 shadow-xl">
                   {tenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
+                    <SelectItem key={tenant.id} value={tenant.id} className="bg-white hover:bg-blue-50 focus:bg-blue-100">
                       {tenant.name} - कोठा {tenant.room.room_number}
                     </SelectItem>
                   ))}
@@ -300,9 +300,9 @@ export default function BillForm() {
                 <SelectTrigger>
                   <SelectValue placeholder="रीडिङ छान्नुहोस्" />
                 </SelectTrigger>
-                <SelectContent className="z-50 max-h-60 overflow-y-auto">
+                <SelectContent className="z-[100] max-h-60 overflow-y-auto bg-white border-gray-200 shadow-xl">
                   {readings.map((reading) => (
-                    <SelectItem key={reading.id} value={reading.id}>
+                    <SelectItem key={reading.id} value={reading.id} className="bg-white hover:bg-blue-50 focus:bg-blue-100">
                       {reading.reading_date_nepali} - {reading.units_consumed} युनिट
                     </SelectItem>
                   ))}

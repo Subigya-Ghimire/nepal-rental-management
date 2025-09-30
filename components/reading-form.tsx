@@ -382,9 +382,9 @@ export function ReadingForm() {
               <SelectTrigger>
                 <SelectValue placeholder="भाडामा छान्नुहोस्" />
               </SelectTrigger>
-              <SelectContent className="z-50 max-h-60 overflow-y-auto">
+              <SelectContent className="z-[100] max-h-60 overflow-y-auto bg-white border-gray-200 shadow-xl">
                 {tenants.map((tenant) => (
-                  <SelectItem key={tenant.id} value={tenant.id}>
+                  <SelectItem key={tenant.id} value={tenant.id} className="bg-white hover:bg-blue-50 focus:bg-blue-100">
                     {tenant.name} - कोठा {tenant.rooms.room_number} ({tenant.rooms.room_type === 'double' ? 'डबल' : 'सिंगल'})
                   </SelectItem>
                 ))}
