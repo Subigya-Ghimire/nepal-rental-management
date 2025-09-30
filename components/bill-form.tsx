@@ -197,7 +197,6 @@ export default function BillForm() {
         rent_amount: parseFloat(billData.monthly_rent),
         electricity_amount: reading.units_consumed * (reading.rate_per_unit || 15),
         previous_balance: parseFloat(billData.previous_balance),
-        total_amount: totalAmount,
         notes: billData.notes || null,
         is_paid: false
       }
