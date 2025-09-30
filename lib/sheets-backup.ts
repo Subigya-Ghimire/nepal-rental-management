@@ -1,11 +1,6 @@
 // Google Sheets backup integration
 import { PRODUCTION_CONFIG } from './config'
 
-interface SheetData {
-  range: string
-  values: any[][]
-}
-
 export class GoogleSheetsBackup {
   private sheetId: string
   private apiKey: string
@@ -16,7 +11,7 @@ export class GoogleSheetsBackup {
   }
 
   // Backup tenants data to Google Sheets
-  async backupTenants(tenants: any[]) {
+  async backupTenants(tenants: unknown[]) {
     if (!PRODUCTION_CONFIG.ENABLE_SHEETS_BACKUP) return
     
     try {

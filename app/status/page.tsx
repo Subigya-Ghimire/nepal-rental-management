@@ -21,13 +21,13 @@ export default function StatusPage() {
     
     if (!isDemoMode()) {
       try {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('rooms')
           .select('count')
           .limit(1)
         
         setDbConnected(!error)
-      } catch (error) {
+      } catch {
         setDbConnected(false)
       }
     }
@@ -164,7 +164,7 @@ export default function StatusPage() {
             {isDemo ? (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  You're running in demo mode. To use real data:
+                  You&apos;re running in demo mode. To use real data:
                 </p>
                 <ol className="text-sm space-y-1 list-decimal list-inside">
                   <li>Setup Supabase database</li>
@@ -178,7 +178,7 @@ export default function StatusPage() {
                   ✅ Production ready! Your data is being saved to the real database.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Add this app to your phone's home screen for easy access.
+                  Add this app to your phone&apos;s home screen for easy access.
                 </p>
               </div>
             )}
