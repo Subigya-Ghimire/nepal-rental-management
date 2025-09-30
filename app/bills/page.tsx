@@ -8,7 +8,7 @@ import { Plus } from 'lucide-react'
 export default async function BillsPage() {
   const { data: bills } = await supabase
     .from("bills")
-    .select("*, tenants(name, rooms(room_number))")
+    .select("*")
     .order("bill_date", { ascending: false })
 
   return (
@@ -36,26 +36,24 @@ export default async function BillsPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{bill.tenants?.name}</h3>
+                      <h3 className="font-semibold text-lg">{bill.tenant_name}</h3>
                       <p className="text-sm text-gray-600">
-                        कोठा: {bill.tenants?.rooms?.room_number} | महिना: {bill.bill_month}
+                        कोठा: {bill.room_number}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        मिति: {new Date(bill.bill_date).toLocaleDateString("ne-NP")}
+                        मिति: {bill.bill_date_nepali || 'नेपाली मिति उपलब्ध छैन'}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-blue-600">रु. {bill.total_amount}</p>
                       <span
                         className={`text-xs px-2 py-1 rounded-full ${
-                          bill.status === "paid"
+                          bill.is_paid
                             ? "bg-green-100 text-green-700"
-                            : bill.status === "partial"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
+                            : "bg-red-100 text-red-700"
                         }`}
                       >
-                        {bill.status === "paid" ? "भुक्तानी भयो" : bill.status === "partial" ? "आंशिक" : "बाँकी"}
+                        {bill.is_paid ? "भुक्तानी भयो" : "बाँकी"}
                       </span>
                     </div>
                   </div>

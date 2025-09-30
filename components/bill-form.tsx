@@ -20,8 +20,8 @@ interface MockTenant {
 
 interface MockReading {
   id: string
-  reading_date: string
-  units_consumed: number // Changed from unit_consumed to match database
+  reading_date_nepali: string // Changed to use only Nepali date
+  units_consumed: number
   tenant_id: string
   tenant_name?: string
   room_number?: string
@@ -35,9 +35,9 @@ const mockTenants: MockTenant[] = [
 ]
 
 const mockReadings: MockReading[] = [
-  { id: '1', reading_date: '2024-01-15', units_consumed: 150, tenant_id: '1', tenant_name: 'राम बहादुर', room_number: '101', rate_per_unit: 15 },
-  { id: '2', reading_date: '2024-01-16', units_consumed: 120, tenant_id: '2', tenant_name: 'सीता कुमारी', room_number: '102', rate_per_unit: 15 },
-  { id: '3', reading_date: '2024-01-17', units_consumed: 180, tenant_id: '3', tenant_name: 'हरि प्रसाद', room_number: '201', rate_per_unit: 15 }
+  { id: '1', reading_date_nepali: '2081-01-15', units_consumed: 150, tenant_id: '1', tenant_name: 'राम बहादुर', room_number: '101', rate_per_unit: 15 },
+  { id: '2', reading_date_nepali: '2081-01-16', units_consumed: 120, tenant_id: '2', tenant_name: 'सीता कुमारी', room_number: '102', rate_per_unit: 15 },
+  { id: '3', reading_date_nepali: '2081-01-17', units_consumed: 180, tenant_id: '3', tenant_name: 'हरि प्रसाद', room_number: '201', rate_per_unit: 15 }
 ]
 
 export default function BillForm() {
@@ -46,7 +46,7 @@ export default function BillForm() {
   const [selectedTenant, setSelectedTenant] = useState('')
   const [selectedReading, setSelectedReading] = useState('')
   const [billData, setBillData] = useState({
-    bill_date: new Date().toISOString().split('T')[0],
+    bill_date_nepali: getDefaultNepaliDate(), // Only Nepali date
     // Core charges
     monthly_rent: '8000',
     // Previous month adjustments
@@ -112,9 +112,9 @@ export default function BillForm() {
 
       const { data, error } = await supabase
         .from('readings')
-        .select('id, reading_date, units_consumed, rate_per_unit, tenant_id, tenant_name, room_number')
+        .select('id, reading_date_nepali, units_consumed, rate_per_unit, tenant_id, tenant_name, room_number')
         .eq('tenant_id', tenantId)
-        .order('reading_date', { ascending: false })
+        .order('reading_date_nepali', { ascending: false })
 
       if (error) {
         console.error('Error loading readings:', error)
@@ -193,8 +193,7 @@ export default function BillForm() {
         tenant_id: selectedTenant,
         tenant_name: tenant.name,
         room_number: tenant.room.room_number,
-        bill_date: billData.bill_date,
-        bill_date_nepali: formatBilingualDate(new Date(billData.bill_date)).split(' / ')[1],
+        bill_date_nepali: billData.bill_date_nepali,
         rent_amount: parseFloat(billData.monthly_rent),
         electricity_amount: reading.units_consumed * (reading.rate_per_unit || 15),
         previous_balance: parseFloat(billData.previous_balance),
@@ -214,7 +213,7 @@ export default function BillForm() {
         setSelectedReading('')
         setReadings([])
         setBillData({
-          bill_date: new Date().toISOString().split('T')[0],
+          bill_date_nepali: getDefaultNepaliDate(),
           monthly_rent: '8000',
           previous_balance: '0',
           notes: ''
@@ -246,7 +245,7 @@ export default function BillForm() {
       setSelectedReading('')
       setReadings([])
       setBillData({
-        bill_date: new Date().toISOString().split('T')[0],
+        bill_date_nepali: getDefaultNepaliDate(),
         monthly_rent: '8000',
         previous_balance: '0',
         notes: ''
@@ -301,7 +300,7 @@ export default function BillForm() {
                 <SelectContent>
                   {readings.map((reading) => (
                     <SelectItem key={reading.id} value={reading.id}>
-                      {reading.reading_date} - {reading.units_consumed} युनिट
+                      {reading.reading_date_nepali} - {reading.units_consumed} युनिट
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -311,16 +310,16 @@ export default function BillForm() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="bill_date">बिल मिति *</Label>
+              <Label htmlFor="bill_date_nepali">बिल मिति (नेपाली) *</Label>
               <Input
-                id="bill_date"
-                type="date"
-                value={billData.bill_date}
-                onChange={(e) => setBillData({...billData, bill_date: e.target.value})}
+                id="bill_date_nepali"
+                value={billData.bill_date_nepali}
+                onChange={(e) => setBillData({...billData, bill_date_nepali: e.target.value})}
+                placeholder="YYYY-MM-DD (जस्तै: 2081-06-15)"
                 required
               />
               <p className="text-sm text-muted-foreground">
-                नेपाली मिति: {billData.bill_date && formatBilingualDate(new Date(billData.bill_date)).split(' / ')[1]}
+                नेपाली मिति: YYYY-MM-DD ढाँचामा लेख्नुहोस्
               </p>
             </div>
           </div>

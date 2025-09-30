@@ -58,8 +58,8 @@ CREATE TABLE public.readings (
     tenant_id UUID REFERENCES public.tenants(id) NOT NULL,
     tenant_name VARCHAR(100) NOT NULL,
     room_number VARCHAR(10) NOT NULL,
-    reading_date DATE NOT NULL,
-    reading_date_nepali VARCHAR(20), -- Nepali date support
+    reading_date DATE, -- Made optional since we're using Nepali dates
+    reading_date_nepali VARCHAR(20) NOT NULL, -- Primary date field in Nepali
     previous_reading INTEGER NOT NULL DEFAULT 0,
     current_reading INTEGER NOT NULL,
     units_consumed INTEGER GENERATED ALWAYS AS (current_reading - previous_reading) STORED,
@@ -75,8 +75,8 @@ CREATE TABLE public.bills (
     tenant_id UUID REFERENCES public.tenants(id) NOT NULL,
     tenant_name VARCHAR(100) NOT NULL,
     room_number VARCHAR(10) NOT NULL,
-    bill_date DATE NOT NULL,
-    bill_date_nepali VARCHAR(20), -- Nepali date support
+    bill_date DATE, -- Made optional since we're using Nepali dates  
+    bill_date_nepali VARCHAR(20) NOT NULL, -- Primary date field in Nepali
     rent_amount DECIMAL(10,2) NOT NULL,
     electricity_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     previous_balance DECIMAL(10,2) NOT NULL DEFAULT 0,

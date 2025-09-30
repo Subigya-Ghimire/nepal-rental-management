@@ -12,18 +12,20 @@ import { isDemoMode, getDemoData } from '@/lib/utils'
 // Mock data for demo mode
 interface MockReading {
   id: string
-  reading_date: string
+  reading_date_nepali: string // Only Nepali date
   previous_reading: number
   current_reading: number
   units_consumed: number
   rate_per_unit: number
-  tenants: { name: string; rooms: { room_number: string } }
+  tenants?: { name: string; rooms: { room_number: string } }
+  tenant_name?: string
+  room_number?: string
 }
 
 const mockReadings: MockReading[] = [
   {
     id: '1',
-    reading_date: '2024-01-15',
+    reading_date_nepali: '2081-01-15',
     previous_reading: 1200,
     current_reading: 1350,
     units_consumed: 150,
@@ -32,7 +34,7 @@ const mockReadings: MockReading[] = [
   },
   {
     id: '2',
-    reading_date: '2024-01-16',
+    reading_date_nepali: '2081-01-16',
     previous_reading: 850,
     current_reading: 970,
     units_consumed: 120,
@@ -41,7 +43,7 @@ const mockReadings: MockReading[] = [
   },
   {
     id: '3',
-    reading_date: '2024-01-17',
+    reading_date_nepali: '2081-01-17',
     previous_reading: 1500,
     current_reading: 1680,
     units_consumed: 180,
@@ -75,9 +77,9 @@ export default function ReadingsPage() {
       }
 
       const { data, error } = await supabase
-        .from("meter_readings")
-        .select("*, tenants(name, rooms(room_number))")
-        .order("reading_date", { ascending: false })
+        .from("readings")
+        .select("*")
+        .order("reading_date_nepali", { ascending: false })
 
       if (error) {
         console.error('Error loading readings:', error)
@@ -133,12 +135,12 @@ export default function ReadingsPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-lg">{reading.tenants?.name}</h3>
+                    <h3 className="font-semibold text-lg">{reading.tenant_name || reading.tenants?.name}</h3>
                     <p className="text-sm text-gray-600">
-                      कोठा: {reading.tenants?.rooms?.room_number}
+                      कोठा: {reading.room_number || reading.tenants?.rooms?.room_number}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      मिति: {new Date(reading.reading_date).toLocaleDateString("ne-NP")}
+                      मिति: {reading.reading_date_nepali}
                     </p>
                   </div>
                   <div className="text-right">
