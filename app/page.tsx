@@ -6,16 +6,25 @@ import { Navigation } from '@/components/navigation'
 import { Users, FileText, Zap, Home as HomeIcon } from 'lucide-react'
 
 export default async function Dashboard() {
-  const [tenantsResult, billsResult, readingsResult, roomsResult] = await Promise.all([
+  // Get basic counts and detailed bill information
+  const [tenantsResult, billsResult, readingsResult, roomsResult, billsDetailResult] = await Promise.all([
     supabase.from("tenants").select("*", { count: "exact", head: true }),
     supabase.from("bills").select("*", { count: "exact", head: true }),
-    supabase.from("meter_readings").select("*", { count: "exact", head: true }),
+    supabase.from("readings").select("*", { count: "exact", head: true }),
     supabase.from("rooms").select("*", { count: "exact", head: true }),
+    supabase.from("bills").select("is_paid")
   ])
+
+  // Calculate payment statistics
+  const billsDetail = billsDetailResult.data || []
+  const pendingBills = billsDetail.filter(bill => !bill.is_paid).length
+  const paidBills = billsDetail.filter(bill => bill.is_paid).length
 
   const stats = {
     tenants: tenantsResult.error ? 0 : tenantsResult.count || 0,
     bills: billsResult.error ? 0 : billsResult.count || 0,
+    pendingBills,
+    paidBills,
     readings: readingsResult.error ? 0 : readingsResult.count || 0,
     rooms: roomsResult.error ? 0 : roomsResult.count || 0,
   }
@@ -28,7 +37,7 @@ export default async function Dashboard() {
           <p className="text-gray-600">घर भाडा र बिजुली बिल व्यवस्थापन प्रणाली</p>
         </header>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
@@ -47,12 +56,40 @@ export default async function Dashboard() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                 <FileText className="h-4 w-4" aria-hidden="true" />
-                बिलहरू
+                कुल बिलहरू
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600" aria-label={`${stats.bills} बिलहरू`}>
+              <div className="text-3xl font-bold text-green-600" aria-label={`${stats.bills} कुल बिलहरू`}>
                 {stats.bills}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow border-orange-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-orange-600 flex items-center gap-2">
+                <FileText className="h-4 w-4" aria-hidden="true" />
+                बाँकी बिल
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-600" aria-label={`${stats.pendingBills} बाँकी बिल`}>
+                {stats.pendingBills}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow border-emerald-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-emerald-600 flex items-center gap-2">
+                <FileText className="h-4 w-4" aria-hidden="true" />
+                भुक्तान भएका
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-600" aria-label={`${stats.paidBills} भुक्तान भएका`}>
+                {stats.paidBills}
               </div>
             </CardContent>
           </Card>
