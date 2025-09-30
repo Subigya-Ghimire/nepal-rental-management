@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,6 +57,7 @@ const mockReadings: MockReading[] = [
 ]
 
 export default function BillForm() {
+  const router = useRouter()
   const [tenants, setTenants] = useState<MockTenant[]>([])
   const [readings, setReadings] = useState<MockReading[]>([])
   const [selectedTenant, setSelectedTenant] = useState('')
@@ -311,6 +313,11 @@ export default function BillForm() {
           previous_balance: '0',
           notes: ''
         })
+        
+        // Navigate to bills page after success
+        setTimeout(() => {
+          router.push('/bills')
+        }, 1500)
         return
       }
 
@@ -347,6 +354,11 @@ export default function BillForm() {
         previous_balance: '0',
         notes: ''
       })
+
+      // Navigate to bills page after success
+      setTimeout(() => {
+        router.push('/bills')
+      }, 1500)
 
     } catch (error) {
       console.error('Error:', error)
