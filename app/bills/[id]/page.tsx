@@ -24,6 +24,103 @@ interface Bill {
   created_at: string
 }
 
+interface Reading {
+  id: string
+  previous_reading: number
+  current_reading: number
+  units_consumed: number
+  rate_per_unit: number
+  electricity_cost: number
+}
+
+const NEPALI_MONTHS = [
+  { value: '01', label: 'बैशाख' },
+  { value: '02', label: 'जेठ' },
+  { value: '03', label: 'असार' },
+  { value: '04', label: 'साउन' },
+  { value: '05', label: 'भदौ' },
+  { value: '06', label: 'असोज' },
+  { value: '07', label: 'कात्तिक' },
+  { value: '08', label: 'मंसिर' },
+  { value: '09', label: 'पुष' },
+  { value: '10', label: 'माघ' },
+  { value: '11', label: 'फागुन' },
+  { value: '12', label: 'चैत' }
+]
+
+const getMonthNameFromDate = (nepaliDate: string) => {
+  if (nepaliDate && nepaliDate.includes('-')) {
+    const month = nepaliDate.split('-')[1]
+    const monthObj = NEPALI_MONTHS.find(m => m.value === month)
+    return monthObj ? monthObj.label : 'अज्ञात महिना'
+  }
+  return 'अज्ञात महिना'
+}
+
+function ElectricityBreakdown({ billId, electricityAmount }: { billId: string, electricityAmount: number }) {
+  const [reading, setReading] = useState<Reading | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchReading = async () => {
+      try {
+        const supabase = getSupabaseBrowserClient()
+        // Get the most recent reading 
+        const { data, error } = await supabase
+          .from('readings')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (!error && data) {
+          setReading(data)
+        }
+      } catch (err) {
+        console.error('Error fetching reading:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchReading()
+  }, [billId])
+
+  if (loading) {
+    return <div className="text-sm text-gray-500">लोड हुँदैछ...</div>
+  }
+
+  if (!reading) {
+    return (
+      <div className="text-sm space-y-1">
+        <div>बिजुलीको बिल: रु. {electricityAmount}</div>
+        <div className="text-gray-500">(रिडिङ जानकारी उपलब्ध छैन)</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="text-sm space-y-1">
+      <div className="grid grid-cols-2 gap-2">
+        <span>हालको रिडिङ:</span>
+        <span className="font-medium">{reading.current_reading}</span>
+        <span>पहिलेको रिडिङ:</span>
+        <span className="font-medium">{reading.previous_reading}</span>
+        <span>खपत भएको युनिट:</span>
+        <span className="font-medium">{reading.units_consumed} युनिट</span>
+        <span>प्रति युनिट दर:</span>
+        <span className="font-medium">रु. {reading.rate_per_unit}</span>
+      </div>
+      <div className="border-t pt-1 mt-2">
+        <div className="flex justify-between font-medium">
+          <span>कुल रकम:</span>
+          <span>रु. {electricityAmount}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BillDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -180,9 +277,14 @@ export default function BillDetailPage() {
         <Card className="bg-white shadow-lg">
           <CardHeader className="bg-blue-50">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl text-blue-800">
-                बिल नं: {bill.id.slice(-8)}
-              </CardTitle>
+              <div>
+                <CardTitle className="text-2xl text-blue-800">
+                  {getMonthNameFromDate(bill.bill_date_nepali)} महिनाको बिल
+                </CardTitle>
+                <p className="text-sm text-blue-600 mt-1">
+                  बिल नं: {bill.id.slice(-8)} | मिति: {bill.bill_date_nepali}
+                </p>
+              </div>
               <Badge 
                 className={bill.is_paid ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}
               >
@@ -209,23 +311,26 @@ export default function BillDetailPage() {
                 <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
                   बिल विवरण
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex justify-between">
                     <span>कोठाको भाडा:</span>
-                    <span>रु. {bill.rent_amount}</span>
+                    <span className="font-medium">रु. {bill.rent_amount}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>बिजुलीको बिल:</span>
-                    <span>रु. {bill.electricity_amount}</span>
+                  
+                  {/* Detailed Electricity Breakdown */}
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="font-medium text-gray-800 mb-2">बिजुलीको बिल विवरण:</div>
+                    <ElectricityBreakdown billId={bill.id} electricityAmount={bill.electricity_amount} />
                   </div>
+                  
                   <div className="flex justify-between">
                     <span>अघिल्लो बाँकी:</span>
-                    <span>रु. {bill.previous_balance}</span>
+                    <span className="font-medium">रु. {bill.previous_balance}</span>
                   </div>
                   <div className="border-t pt-2 mt-2">
                     <div className="flex justify-between font-bold text-lg">
                       <span>कुल रकम:</span>
-                      <span>रु. {bill.total_amount}</span>
+                      <span className="text-blue-600">रु. {bill.total_amount}</span>
                     </div>
                   </div>
                 </div>
