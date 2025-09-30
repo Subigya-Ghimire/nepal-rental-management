@@ -280,7 +280,7 @@ export default function BillForm() {
                 <SelectTrigger>
                   <SelectValue placeholder="भाडादार छान्नुहोस्" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50 max-h-60 overflow-y-auto">
                   {tenants.map((tenant) => (
                     <SelectItem key={tenant.id} value={tenant.id}>
                       {tenant.name} - कोठा {tenant.room.room_number}
@@ -300,7 +300,7 @@ export default function BillForm() {
                 <SelectTrigger>
                   <SelectValue placeholder="रीडिङ छान्नुहोस्" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50 max-h-60 overflow-y-auto">
                   {readings.map((reading) => (
                     <SelectItem key={reading.id} value={reading.id}>
                       {reading.reading_date_nepali} - {reading.units_consumed} युनिट
@@ -318,12 +318,9 @@ export default function BillForm() {
                 id="bill_date_nepali"
                 value={billData.bill_date_nepali}
                 onChange={(e) => setBillData({...billData, bill_date_nepali: e.target.value})}
-                placeholder="YYYY-MM-DD (जस्तै: 2081-06-15)"
+                placeholder="YYYY-MM-DD (जस्तै: 2082-06-14)"
                 required
               />
-              <p className="text-sm text-muted-foreground">
-                नेपाली मिति: YYYY-MM-DD ढाँचामा लेख्नुहोस्
-              </p>
             </div>
           </div>
 

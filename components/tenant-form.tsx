@@ -256,7 +256,7 @@ export function TenantForm() {
               <SelectTrigger>
                 <SelectValue placeholder="कोठा छान्नुहोस्" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-50 max-h-60 overflow-y-auto">
                 {rooms.map((room) => (
                   <SelectItem key={room.id} value={room.id}>
                     कोठा {room.room_number} - तल्ला {room.floor_number} (रु. {room.monthly_rent})

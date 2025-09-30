@@ -382,7 +382,7 @@ export function ReadingForm() {
               <SelectTrigger>
                 <SelectValue placeholder="भाडामा छान्नुहोस्" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-50 max-h-60 overflow-y-auto">
                 {tenants.map((tenant) => (
                   <SelectItem key={tenant.id} value={tenant.id}>
                     {tenant.name} - कोठा {tenant.rooms.room_number} ({tenant.rooms.room_type === 'double' ? 'डबल' : 'सिंगल'})
@@ -398,12 +398,9 @@ export function ReadingForm() {
               id="reading_date_nepali"
               value={formData.reading_date_nepali}
               onChange={(e) => setFormData({ ...formData, reading_date_nepali: e.target.value })}
-              placeholder="YYYY-MM-DD (जस्तै: 2081-06-15)"
+              placeholder="YYYY-MM-DD (जस्तै: 2082-06-14)"
               required
             />
-            <p className="text-sm text-muted-foreground mt-1">
-              नेपाली मिति: YYYY-MM-DD ढाँचामा लेख्नुहोस्
-            </p>
           </div>
 
           {/* Single Room Meter Fields */}
@@ -423,9 +420,6 @@ export function ReadingForm() {
                   }
                   placeholder="पहिलेको रिडिङ (सम्पादन गर्न सकिन्छ)"
                 />
-                <p className="text-sm text-muted-foreground mt-1">
-                  यो फिल्ड सम्पादन गर्न सकिन्छ यदि आवश्यक भएमा
-                </p>
               </div>
 
               <div>
