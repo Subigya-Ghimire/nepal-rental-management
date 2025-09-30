@@ -36,14 +36,16 @@ CREATE TABLE public.rooms (
 CREATE TABLE public.tenants (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20), -- Made optional (removed NOT NULL)
+    phone VARCHAR(20), -- Made optional (no NOT NULL constraint)
     email VARCHAR(100),
     room_id UUID REFERENCES public.rooms(id),
     room_number VARCHAR(10) NOT NULL,
     monthly_rent DECIMAL(10,2) NOT NULL,
     security_deposit DECIMAL(10,2) NOT NULL,
-    move_in_date DATE NOT NULL,
+    move_in_date DATE, -- Made optional since form doesn't collect this
+    move_in_date_nepali VARCHAR(20), -- Nepali date support (optional)
     move_out_date DATE,
+    move_out_date_nepali VARCHAR(20), -- Nepali date support (optional)
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -56,6 +58,7 @@ CREATE TABLE public.readings (
     tenant_name VARCHAR(100) NOT NULL,
     room_number VARCHAR(10) NOT NULL,
     reading_date DATE NOT NULL,
+    reading_date_nepali VARCHAR(20), -- Nepali date support
     previous_reading INTEGER NOT NULL DEFAULT 0,
     current_reading INTEGER NOT NULL,
     units_consumed INTEGER GENERATED ALWAYS AS (current_reading - previous_reading) STORED,
@@ -72,6 +75,7 @@ CREATE TABLE public.bills (
     tenant_name VARCHAR(100) NOT NULL,
     room_number VARCHAR(10) NOT NULL,
     bill_date DATE NOT NULL,
+    bill_date_nepali VARCHAR(20), -- Nepali date support
     rent_amount DECIMAL(10,2) NOT NULL,
     electricity_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     previous_balance DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -90,6 +94,7 @@ CREATE TABLE public.payments (
     room_number VARCHAR(10) NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
     payment_date DATE NOT NULL,
+    payment_date_nepali VARCHAR(20), -- Nepali date support
     payment_method VARCHAR(20) DEFAULT 'cash',
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
