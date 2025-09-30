@@ -11,8 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/lib/supabase"
 import { isDemoMode, getDemoData, setDemoData } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { sheetsBackup } from "@/lib/sheets-backup"
-import { getCurrentNepaliDate, formatBilingualDate, getDefaultNepaliDate } from "@/lib/nepali-date"
 
 // Mock data for demo mode
 const mockRooms = [
@@ -37,8 +35,6 @@ export function TenantForm() {
     phone: "", // Made optional
     email: "",
     room_id: "",
-    move_in_date: new Date().toISOString().split("T")[0],
-    move_in_date_nepali: getDefaultNepaliDate(), // Nepali date field
   })
 
   const loadRooms = useCallback(async () => {
@@ -93,8 +89,6 @@ export function TenantForm() {
           email: formData.email || '',
           is_active: true,
           created_at: new Date().toISOString(),
-          move_in_date: formData.move_in_date,
-          move_in_date_nepali: formData.move_in_date_nepali, // Store Nepali date
           rooms: {
             room_number: selectedRoom?.room_number || '',
             floor_number: selectedRoom?.floor_number || ''
@@ -123,7 +117,6 @@ export function TenantForm() {
         phone: formData.phone || null, // Handle optional phone
         email: formData.email || null,
         room_id: formData.room_id,
-        move_in_date: formData.move_in_date,
         is_active: true,
       })
 
@@ -148,21 +141,6 @@ export function TenantForm() {
         title: "सफल",
         description: "भाडादार सफलतापूर्वक थपियो",
       })
-
-      // Automatic backup to Google Sheets
-      try {
-        const { data: allTenants } = await supabase
-          .from("tenants")
-          .select("*")
-          .order('created_at', { ascending: false })
-        
-        if (allTenants) {
-          await sheetsBackup.backupTenants(allTenants)
-        }
-      } catch (backupError) {
-        console.log('Backup warning:', backupError)
-        // Don't show error to user - backup is optional
-      }
 
       // Use window.location to force a full page refresh and navigation
       window.location.href = "/tenants"
@@ -233,35 +211,6 @@ export function TenantForm() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="move_in_date">भित्रिएको मिति (अंग्रेजी) *</Label>
-            <Input
-              id="move_in_date"
-              type="date"
-              value={formData.move_in_date}
-              onChange={(e) => {
-                setFormData({ ...formData, move_in_date: e.target.value })
-              }}
-              required
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              {formData.move_in_date && formatBilingualDate(new Date(formData.move_in_date))}
-            </p>
-          </div>
-
-          <div>
-            <Label htmlFor="move_in_date_nepali">भित्रिएको मिति (नेपाली)</Label>
-            <Input
-              id="move_in_date_nepali"
-              value={formData.move_in_date_nepali}
-              onChange={(e) => setFormData({ ...formData, move_in_date_nepali: e.target.value })}
-              placeholder="YYYY-MM-DD (जस्तै: 2081-06-15)"
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              नेपाली मिति: YYYY-MM-DD ढाँचामा लेख्नुहोस् (वैकल्पिक)
-            </p>
           </div>
 
           <Button type="submit" disabled={loading} className="w-full">
