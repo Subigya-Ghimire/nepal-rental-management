@@ -36,7 +36,7 @@ CREATE TABLE public.rooms (
 CREATE TABLE public.tenants (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20) NOT NULL,
+    phone VARCHAR(20), -- Made optional (removed NOT NULL)
     email VARCHAR(100),
     room_id UUID REFERENCES public.rooms(id),
     room_number VARCHAR(10) NOT NULL,

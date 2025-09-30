@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/utils'
+import { formatBilingualDate, getDefaultNepaliDate } from '@/lib/nepali-date'
 
 // Mock data for demo mode
 interface MockTenant {
@@ -45,6 +46,7 @@ export default function BillForm() {
   const [selectedReading, setSelectedReading] = useState('')
   const [billData, setBillData] = useState({
     bill_date: new Date().toISOString().split('T')[0],
+    bill_date_nepali: getDefaultNepaliDate(), // Nepali date field
     // Core charges
     monthly_rent: '8000',
     // Previous month adjustments
@@ -215,6 +217,7 @@ export default function BillForm() {
         setReadings([])
         setBillData({
           bill_date: new Date().toISOString().split('T')[0],
+          bill_date_nepali: getDefaultNepaliDate(),
           monthly_rent: '8000',
           previous_balance: '0',
           notes: ''
@@ -247,6 +250,7 @@ export default function BillForm() {
       setReadings([])
       setBillData({
         bill_date: new Date().toISOString().split('T')[0],
+        bill_date_nepali: getDefaultNepaliDate(),
         monthly_rent: '8000',
         previous_balance: '0',
         notes: ''
@@ -309,15 +313,33 @@ export default function BillForm() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="bill_date">बिल मिति</Label>
-            <Input
-              id="bill_date"
-              type="date"
-              value={billData.bill_date}
-              onChange={(e) => setBillData({...billData, bill_date: e.target.value})}
-              required
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="bill_date">बिल मिति (अंग्रेजी)</Label>
+              <Input
+                id="bill_date"
+                type="date"
+                value={billData.bill_date}
+                onChange={(e) => setBillData({...billData, bill_date: e.target.value})}
+                required
+              />
+              <p className="text-sm text-muted-foreground">
+                {billData.bill_date && formatBilingualDate(new Date(billData.bill_date))}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bill_date_nepali">बिल मिति (नेपाली)</Label>
+              <Input
+                id="bill_date_nepali"
+                value={billData.bill_date_nepali}
+                onChange={(e) => setBillData({...billData, bill_date_nepali: e.target.value})}
+                placeholder="YYYY-MM-DD (जस्तै: 2081-06-15)"
+              />
+              <p className="text-sm text-muted-foreground">
+                नेपाली मिति: YYYY-MM-DD ढाँचामा लेख्नुहोस् (वैकल्पिक)
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

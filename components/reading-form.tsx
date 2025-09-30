@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/lib/supabase"
 import { isDemoMode, getDemoData, setDemoData } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { formatBilingualDate, getDefaultNepaliDate } from "@/lib/nepali-date"
 
 interface Tenant {
   id: string
@@ -34,6 +35,7 @@ export function ReadingForm() {
   const [formData, setFormData] = useState({
     tenant_id: "",
     reading_date: new Date().toISOString().split("T")[0],
+    reading_date_nepali: getDefaultNepaliDate(), // Nepali date field
     previous_reading: 0,
     current_reading: 0,
     rate_per_unit: 15, // Default unit rate set to 15 rupees as requested
@@ -272,7 +274,7 @@ export function ReadingForm() {
           </div>
 
           <div>
-            <Label htmlFor="reading_date">मिति *</Label>
+            <Label htmlFor="reading_date">मिति (अंग्रेजी) *</Label>
             <Input
               id="reading_date"
               type="date"
@@ -280,6 +282,22 @@ export function ReadingForm() {
               onChange={(e) => setFormData({ ...formData, reading_date: e.target.value })}
               required
             />
+            <p className="text-sm text-muted-foreground mt-1">
+              {formData.reading_date && formatBilingualDate(new Date(formData.reading_date))}
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="reading_date_nepali">मिति (नेपाली)</Label>
+            <Input
+              id="reading_date_nepali"
+              value={formData.reading_date_nepali}
+              onChange={(e) => setFormData({ ...formData, reading_date_nepali: e.target.value })}
+              placeholder="YYYY-MM-DD (जस्तै: 2081-06-15)"
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              नेपाली मिति: YYYY-MM-DD ढाँचामा लेख्नुहोस् (वैकल्पिक)
+            </p>
           </div>
 
           <div>
