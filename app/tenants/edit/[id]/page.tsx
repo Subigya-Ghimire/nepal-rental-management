@@ -147,6 +147,23 @@ export default function EditTenantPage() {
     try {
       const supabase = getSupabaseBrowserClient()
       
+      // Get current tenant data to check if room changed
+      const { data: currentTenant, error: fetchError } = await supabase
+        .from('tenants')
+        .select('room_id')
+        .eq('id', tenantId)
+        .single()
+
+      if (fetchError) {
+        console.error('Error fetching current tenant:', fetchError)
+        toast({
+          title: "त्रुटि",
+          description: "वर्तमान डाटा फेला परेन",
+          variant: "destructive",
+        })
+        return
+      }
+      
       const selectedRoom = rooms.find(room => room.id === formData.room_id)
       if (!selectedRoom) {
         toast({
@@ -157,8 +174,12 @@ export default function EditTenantPage() {
         return
       }
 
+      const oldRoomId = currentTenant.room_id
+      const newRoomId = formData.room_id
+      const roomChanged = oldRoomId !== newRoomId
+
       // Update tenant
-      const { error } = await supabase
+      const { error: tenantError } = await supabase
         .from('tenants')
         .update({
           name: formData.name.trim(),
@@ -173,14 +194,31 @@ export default function EditTenantPage() {
         })
         .eq('id', tenantId)
 
-      if (error) {
-        console.error('Error updating tenant:', error)
+      if (tenantError) {
+        console.error('Error updating tenant:', tenantError)
         toast({
           title: "त्रुटि",
           description: "भाडावाल अपडेट गर्न सकिएन",
           variant: "destructive",
         })
         return
+      }
+
+      // Update room occupancy if room changed
+      if (roomChanged) {
+        // Free up old room
+        if (oldRoomId) {
+          await supabase
+            .from('rooms')
+            .update({ is_occupied: false })
+            .eq('id', oldRoomId)
+        }
+
+        // Occupy new room
+        await supabase
+          .from('rooms')
+          .update({ is_occupied: true })
+          .eq('id', newRoomId)
       }
 
       toast({

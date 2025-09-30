@@ -134,26 +134,60 @@ export default function TenantsPage() {
 
     try {
       const supabase = getSupabaseBrowserClient()
-      const { error } = await supabase
+      
+      // First get the tenant's room_id to free it up
+      const { data: tenant, error: fetchError } = await supabase
+        .from('tenants')
+        .select('room_id')
+        .eq('id', tenantId)
+        .single()
+
+      if (fetchError) {
+        console.error('Error fetching tenant:', fetchError)
+        toast({
+          title: "त्रुटि",
+          description: "भाडावाल फेला परेन",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Delete the tenant
+      const { error: deleteError } = await supabase
         .from('tenants')
         .delete()
         .eq('id', tenantId)
 
-      if (error) {
-        console.error('Error deleting tenant:', error)
+      if (deleteError) {
+        console.error('Error deleting tenant:', deleteError)
         toast({
           title: "त्रुटि",
           description: "भाडावाल मेटाउन सकिएन",
           variant: "destructive",
         })
-      } else {
-        toast({
-          title: "सफल",
-          description: "भाडावाल सफलतापूर्वक मेटाइयो",
-        })
-        // Reload tenants
-        loadTenants()
+        return
       }
+
+      // Free up the room
+      if (tenant?.room_id) {
+        const { error: roomError } = await supabase
+          .from('rooms')
+          .update({ is_occupied: false })
+          .eq('id', tenant.room_id)
+
+        if (roomError) {
+          console.error('Error updating room status:', roomError)
+          // Don't fail the whole operation for this
+        }
+      }
+
+      toast({
+        title: "सफल",
+        description: "भाडावाल सफलतापूर्वक मेटाइयो",
+      })
+      
+      // Reload tenants
+      loadTenants()
     } catch (err) {
       console.error('Error:', err)
       toast({
