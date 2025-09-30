@@ -21,9 +21,10 @@ interface MockTenant {
 interface MockReading {
   id: string
   reading_date: string
-  unit_consumed: number
+  units_consumed: number // Changed from unit_consumed to match database
   tenant_id: string
-  room_id: string
+  tenant_name?: string
+  room_number?: string
   rate_per_unit?: number
 }
 
@@ -34,9 +35,9 @@ const mockTenants: MockTenant[] = [
 ]
 
 const mockReadings: MockReading[] = [
-  { id: '1', reading_date: '2024-01-15', unit_consumed: 150, tenant_id: '1', room_id: '1', rate_per_unit: 15 },
-  { id: '2', reading_date: '2024-01-16', unit_consumed: 120, tenant_id: '2', room_id: '2', rate_per_unit: 15 },
-  { id: '3', reading_date: '2024-01-17', unit_consumed: 180, tenant_id: '3', room_id: '3', rate_per_unit: 15 }
+  { id: '1', reading_date: '2024-01-15', units_consumed: 150, tenant_id: '1', tenant_name: 'राम बहादुर', room_number: '101', rate_per_unit: 15 },
+  { id: '2', reading_date: '2024-01-16', units_consumed: 120, tenant_id: '2', tenant_name: 'सीता कुमारी', room_number: '102', rate_per_unit: 15 },
+  { id: '3', reading_date: '2024-01-17', units_consumed: 180, tenant_id: '3', tenant_name: 'हरि प्रसाद', room_number: '201', rate_per_unit: 15 }
 ]
 
 export default function BillForm() {
@@ -46,7 +47,6 @@ export default function BillForm() {
   const [selectedReading, setSelectedReading] = useState('')
   const [billData, setBillData] = useState({
     bill_date: new Date().toISOString().split('T')[0],
-    bill_date_nepali: getDefaultNepaliDate(), // Nepali date field
     // Core charges
     monthly_rent: '8000',
     // Previous month adjustments
@@ -112,7 +112,7 @@ export default function BillForm() {
 
       const { data, error } = await supabase
         .from('readings')
-        .select('*')
+        .select('id, reading_date, units_consumed, rate_per_unit, tenant_id, tenant_name, room_number')
         .eq('tenant_id', tenantId)
         .order('reading_date', { ascending: false })
 
@@ -155,7 +155,7 @@ export default function BillForm() {
 
     const monthlyRent = parseFloat(billData.monthly_rent)
     // Use the rate from the reading (set when reading was added)
-    const electricityAmount = reading.unit_consumed * (reading.rate_per_unit || 15)
+    const electricityAmount = reading.units_consumed * (reading.rate_per_unit || 15)
     const previousBalance = parseFloat(billData.previous_balance)
 
     return monthlyRent + electricityAmount + previousBalance
@@ -191,15 +191,13 @@ export default function BillForm() {
 
       const billRecord = {
         tenant_id: selectedTenant,
-        room_id: tenant.room.id,
-        reading_id: selectedReading,
+        tenant_name: tenant.name,
+        room_number: tenant.room.room_number,
         bill_date: billData.bill_date,
-        monthly_rent: parseFloat(billData.monthly_rent),
-        electricity_units: reading.unit_consumed,
-        electricity_rate: reading.rate_per_unit || 15,
-        electricity_amount: reading.unit_consumed * (reading.rate_per_unit || 15),
+        bill_date_nepali: formatBilingualDate(new Date(billData.bill_date)).split(' / ')[1],
+        rent_amount: parseFloat(billData.monthly_rent),
+        electricity_amount: reading.units_consumed * (reading.rate_per_unit || 15),
         previous_balance: parseFloat(billData.previous_balance),
-        total_amount: totalAmount,
         notes: billData.notes || null,
         is_paid: false
       }
@@ -217,7 +215,6 @@ export default function BillForm() {
         setReadings([])
         setBillData({
           bill_date: new Date().toISOString().split('T')[0],
-          bill_date_nepali: getDefaultNepaliDate(),
           monthly_rent: '8000',
           previous_balance: '0',
           notes: ''
@@ -250,7 +247,6 @@ export default function BillForm() {
       setReadings([])
       setBillData({
         bill_date: new Date().toISOString().split('T')[0],
-        bill_date_nepali: getDefaultNepaliDate(),
         monthly_rent: '8000',
         previous_balance: '0',
         notes: ''
@@ -305,7 +301,7 @@ export default function BillForm() {
                 <SelectContent>
                   {readings.map((reading) => (
                     <SelectItem key={reading.id} value={reading.id}>
-                      {reading.reading_date} - {reading.unit_consumed} युनिट
+                      {reading.reading_date} - {reading.units_consumed} युनिट
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -315,7 +311,7 @@ export default function BillForm() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="bill_date">बिल मिति (अंग्रेजी)</Label>
+              <Label htmlFor="bill_date">बिल मिति *</Label>
               <Input
                 id="bill_date"
                 type="date"
@@ -324,20 +320,7 @@ export default function BillForm() {
                 required
               />
               <p className="text-sm text-muted-foreground">
-                {billData.bill_date && formatBilingualDate(new Date(billData.bill_date))}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bill_date_nepali">बिल मिति (नेपाली)</Label>
-              <Input
-                id="bill_date_nepali"
-                value={billData.bill_date_nepali}
-                onChange={(e) => setBillData({...billData, bill_date_nepali: e.target.value})}
-                placeholder="YYYY-MM-DD (जस्तै: 2081-06-15)"
-              />
-              <p className="text-sm text-muted-foreground">
-                नेपाली मिति: YYYY-MM-DD ढाँचामा लेख्नुहोस् (वैकल्पिक)
+                नेपाली मिति: {billData.bill_date && formatBilingualDate(new Date(billData.bill_date)).split(' / ')[1]}
               </p>
             </div>
           </div>
@@ -387,8 +370,8 @@ export default function BillForm() {
                   <span>रू {billData.monthly_rent}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>बिजुली ({readings.find(r => r.id === selectedReading)?.unit_consumed || 0} युनिट @ रू{readings.find(r => r.id === selectedReading)?.rate_per_unit || 15}):</span>
-                  <span>रू {(readings.find(r => r.id === selectedReading)?.unit_consumed || 0) * (readings.find(r => r.id === selectedReading)?.rate_per_unit || 15)}</span>
+                  <span>बिजुली ({readings.find(r => r.id === selectedReading)?.units_consumed || 0} युनिट @ रू{readings.find(r => r.id === selectedReading)?.rate_per_unit || 15}):</span>
+                  <span>रू {(readings.find(r => r.id === selectedReading)?.units_consumed || 0) * (readings.find(r => r.id === selectedReading)?.rate_per_unit || 15)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>पहिलेको बाँकी/अग्रिम:</span>

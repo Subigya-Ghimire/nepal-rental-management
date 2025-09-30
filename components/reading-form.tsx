@@ -199,28 +199,76 @@ export function ReadingForm() {
       const unitsConsumed = formData.current_reading - formData.previous_reading
       console.log('✅ Validation passed. Units consumed:', unitsConsumed)
 
-      // Always use demo mode for now to test
-      console.log('💾 Saving in demo mode...')
-      
-      const readingData = {
-        id: Date.now().toString(),
+      if (isDemoMode()) {
+        console.log('💾 Saving in demo mode...')
+        
+        const readingData = {
+          id: Date.now().toString(),
+          tenant_id: formData.tenant_id,
+          reading_date: formData.reading_date,
+          previous_reading: formData.previous_reading,
+          current_reading: formData.current_reading,
+          units_consumed: unitsConsumed,
+          rate_per_unit: formData.rate_per_unit,
+          tenants: tenants.find(t => t.id === formData.tenant_id)
+        }
+        
+        console.log('📝 Reading data to save:', readingData)
+
+        // Save to localStorage for demo mode
+        const existingReadings = getDemoData('readings')
+        const updatedReadings = [...existingReadings, readingData]
+        setDemoData('readings', updatedReadings)
+        
+        console.log('💾 Saved to localStorage. Total readings:', updatedReadings.length)
+        
+        toast({
+          title: "सफल",
+          description: "रिडिङ सफलतापूर्वक सेभ भयो",
+        })
+
+        console.log('✅ Toast shown, redirecting...')
+        
+        // Small delay to ensure toast is visible
+        setTimeout(() => {
+          window.location.href = "/readings"
+        }, 1000)
+        return
+      }
+
+      // Production mode - save to Supabase
+      const selectedTenant = tenants.find(t => t.id === formData.tenant_id)
+      if (!selectedTenant) {
+        toast({
+          title: "त्रुटि",
+          description: "भाडादार फेला परेन",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
+      const { error } = await supabase.from('readings').insert({
         tenant_id: formData.tenant_id,
+        tenant_name: selectedTenant.name,
+        room_number: selectedTenant.rooms.room_number,
         reading_date: formData.reading_date,
+        reading_date_nepali: formData.reading_date_nepali,
         previous_reading: formData.previous_reading,
         current_reading: formData.current_reading,
-        units_consumed: unitsConsumed,
-        rate_per_unit: formData.rate_per_unit,
-        tenants: tenants.find(t => t.id === formData.tenant_id)
-      }
-      
-      console.log('📝 Reading data to save:', readingData)
+        rate_per_unit: formData.rate_per_unit
+      })
 
-      // Save to localStorage for demo mode
-      const existingReadings = getDemoData('readings')
-      const updatedReadings = [...existingReadings, readingData]
-      setDemoData('readings', updatedReadings)
-      
-      console.log('💾 Saved to localStorage. Total readings:', updatedReadings.length)
+      if (error) {
+        console.error('Error saving reading:', error)
+        toast({
+          title: "त्रुटि",
+          description: "रिडिङ सेभ गर्न सकिएन",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
 
       toast({
         title: "सफल",
