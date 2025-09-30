@@ -197,6 +197,7 @@ export default function BillForm() {
         rent_amount: parseFloat(billData.monthly_rent),
         electricity_amount: reading.units_consumed * (reading.rate_per_unit || 15),
         previous_balance: parseFloat(billData.previous_balance),
+        total_amount: totalAmount,
         notes: billData.notes || null,
         is_paid: false
       }
@@ -227,13 +228,16 @@ export default function BillForm() {
 
       if (error) {
         console.error('Error creating bill:', error)
+        console.error('Bill record being inserted:', billRecord)
         toast({
           title: "त्रुटि",
-          description: "बिल सिर्जना गर्न सकिएन",
+          description: `बिल सिर्जना गर्न सकिएन: ${error.message}`,
           variant: "destructive",
         })
         return
       }
+
+      console.log('Bill created successfully:', billRecord)
 
       toast({
         title: "सफल",
