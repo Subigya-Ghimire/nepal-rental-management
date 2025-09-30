@@ -186,7 +186,9 @@ export function ReadingForm() {
       // Find selected tenant and update room type
       const selectedTenant = tenants.find(t => t.id === formData.tenant_id)
       if (selectedTenant) {
-        setSelectedRoomType(selectedTenant.rooms.room_type || 'single')
+        const roomType = selectedTenant.rooms.room_type || 'single'
+        console.log('🏠 Selected tenant room type:', roomType, 'for tenant:', selectedTenant.name)
+        setSelectedRoomType(roomType)
       }
       loadPreviousReading(formData.tenant_id)
     }
@@ -198,6 +200,7 @@ export function ReadingForm() {
 
     console.log('=== FORM SUBMISSION START ===')
     console.log('Form data:', formData)
+    console.log('Selected room type:', selectedRoomType)
     console.log('Is demo mode:', isDemoMode())
     console.log('Tenants loaded:', tenants.length)
 
@@ -316,22 +319,45 @@ export function ReadingForm() {
       if (selectedRoomType === 'single') {
         insertData.previous_reading = formData.previous_reading
         insertData.current_reading = formData.current_reading
+        // Set double room fields to null for single rooms
+        insertData.room_meter_previous = null
+        insertData.room_meter_current = null
+        insertData.kitchen_meter_previous = null
+        insertData.kitchen_meter_current = null
       } else if (selectedRoomType === 'double') {
         insertData.room_meter_previous = formData.room_meter_previous
         insertData.room_meter_current = formData.room_meter_current
         insertData.kitchen_meter_previous = formData.kitchen_meter_previous
         insertData.kitchen_meter_current = formData.kitchen_meter_current
+        // Set single room fields to null for double rooms
+        insertData.previous_reading = null
+        insertData.current_reading = null
       }
+
+      console.log('📊 Final insert data:', insertData)
+      console.log('🎯 About to insert into database...')
 
       const { error } = await supabase.from('readings').insert(insertData)
 
       if (error) {
         console.error('Error saving reading:', error)
-        toast({
-          title: "त्रुटि",
-          description: "रिडिङ सेभ गर्न सकिएन",
-          variant: "destructive",
-        })
+        console.error('Insert data was:', insertData)
+        console.error('Selected room type:', selectedRoomType)
+        
+        // Check if the error is related to missing double room columns
+        if (error.message.includes('column') && selectedRoomType === 'double') {
+          toast({
+            title: "त्रुटि",
+            description: "डबल कोठा समर्थन सक्रिय गर्न डेटाबेस अपडेट आवश्यक छ। कृपया व्यवस्थापकलाई सम्पर्क गर्नुहोस्।",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "त्रुटि",
+            description: `रिडिङ सेभ गर्न सकिएन: ${error.message}`,
+            variant: "destructive",
+          })
+        }
         setLoading(false)
         return
       }
